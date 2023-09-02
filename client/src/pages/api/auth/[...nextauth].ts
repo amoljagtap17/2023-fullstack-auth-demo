@@ -1,4 +1,8 @@
+import hkdf from "@panva/hkdf";
+import { EncryptJWT, jwtDecrypt } from "jose";
 import NextAuth, { NextAuthOptions } from "next-auth";
+// @ts-ignore
+import { v4 as uuid } from "uuid";
 
 const customOauthProvider: any = {
   id: process.env.AUTH_PROVIDER as string,
@@ -22,6 +26,20 @@ const customOauthProvider: any = {
   },
 };
 
+const DEFAULT_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+
+const now = () => (Date.now() / 1000) | 0;
+
+async function getDerivedEncryptionKey(secret: string | Buffer) {
+  return await hkdf(
+    "sha256",
+    secret,
+    "",
+    "Private Generated Encryption Key",
+    32
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [customOauthProvider],
   session: {
@@ -29,6 +47,31 @@ export const authOptions: NextAuthOptions = {
     maxAge: 60 * parseInt(process.env.SESSION_TIMEOUT as string),
   },
   useSecureCookies: false,
+  jwt: {
+    async encode(params) {
+      const { token = {}, secret, maxAge = DEFAULT_MAX_AGE } = params;
+      const encryptionSecret = await getDerivedEncryptionKey(secret);
+
+      return await new EncryptJWT(token)
+        .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+        .setIssuedAt()
+        .setExpirationTime(now() + maxAge)
+        .setJti(uuid())
+        .encrypt(encryptionSecret);
+    },
+    async decode(params) {
+      const { token, secret } = params;
+
+      if (!token) return null;
+
+      const encryptionSecret = await getDerivedEncryptionKey(secret);
+      const { payload } = await jwtDecrypt(token, encryptionSecret, {
+        clockTolerance: 15,
+      });
+
+      return payload;
+    },
+  },
 };
 
 export default NextAuth(authOptions);
