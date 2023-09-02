@@ -1,7 +1,10 @@
-import { Login } from "@/components/sections";
+import { Login, Products } from "@/components/sections";
+import { useSession } from "next-auth/react";
 import Head from "next/head";
 
 export default function Home() {
+  const { status } = useSession();
+
   return (
     <>
       <Head>
@@ -12,6 +15,7 @@ export default function Home() {
       </Head>
       <h1>Home Page!</h1>
       <Login />
+      {status === "authenticated" ? <Products /> : null}
     </>
   );
 }
