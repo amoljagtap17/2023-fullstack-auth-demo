@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 60 * parseInt(process.env.SESSION_TIMEOUT as string),
   },
-  useSecureCookies: true,
+  useSecureCookies: false,
 };
 
 export default NextAuth(authOptions);
